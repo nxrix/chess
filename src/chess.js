@@ -19,7 +19,7 @@ const CR = (t => (t[0]=8, t[4]=12, t[7]=4, t[112]=2, t[116]=3, t[119]=1, t))(new
 const sq  = s => (8 - +s[1]) * 16 + (s.charCodeAt(0) - 97);
 const alg = i => String.fromCharCode(97 + (i & 7), 56 - (i >> 4));
 
-class Chess {
+export class Chess {
   constructor(fen) {
     this.load(fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
   }
