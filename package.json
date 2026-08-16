@@ -1,6 +1,8 @@
 {
   "type": "module",
   "devDependencies": {
-    "terser": "^5.50.0"
+    "terser": "^5.50.0",
+    "rollup": "^4.62.4",
+    "esbuild": "^0.28.2"
   }
 }
