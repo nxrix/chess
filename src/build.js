@@ -1,5 +1,4 @@
 import { build } from "esbuild";
-//import { minify } from "terser";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 
 await mkdir("./dist", { recursive: true });
@@ -7,7 +6,7 @@ const input = "./src/chess.js";
 
 await build({
   entryPoints: [input],
-  outfile: "./dist/chess.esbuild.min.js",
+  outfile: "./dist/chess.min.js",
   bundle: true,
   format: "esm",
   minify: true,
@@ -17,7 +16,8 @@ await build({
   target: "es2018"
 });
 
-/*const source = await readFile(input, "utf8");
+/*import { minify } from "terser";
+const source = await readFile(input, "utf8");
 const terser = await minify(source, {
   module: true,
   compress: {
