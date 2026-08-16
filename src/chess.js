@@ -259,7 +259,7 @@ export class Chess {
   }
 
   status() {
-    const me = this.t, opp = me ^ 8, checked = this.atk(this.king(me), opp);
+    const checked = this.isCheck();
     if (!this.hasLegal()) return checked ? "checkmate" : "stalemate";
     if (this.h >= 100) return "draw50";
     if (this.threefold()) return "draw3fold";
@@ -267,14 +267,14 @@ export class Chess {
     return checked ? "check" : "ok";
   }
   
-  perft(depth) {
-    if (depth === 0) return 1;
-    let nodes = 0;
+  perft(d) {
+    if (d === 0) return 1;
+    let n = 0;
     for (const m of this.all(true)) {
       const u = this.apply(m, true);
-      nodes += this.perft(depth - 1);
+      n += this.perft(d - 1);
       this.unapply(u, true);
     }
-    return nodes;
+    return n;
   }
 }
