@@ -11,5 +11,6 @@ const result = await minify(input, {
     comments: false
   }
 });
+await mkdir("dist", { recursive: true });
 await writeFile("./dist/chess.min.js", result.code);
 console.log(`Built ${result.code.length} bytes`);
