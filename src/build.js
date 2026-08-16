@@ -1,6 +1,5 @@
 import { build } from "esbuild";
-import { rollup } from "rollup";
-import { minify } from "terser";
+//import { minify } from "terser";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 
 await mkdir("./dist", { recursive: true });
@@ -18,7 +17,7 @@ await build({
   target: "es2018"
 });
 
-const source = await readFile(input, "utf8");
+/*const source = await readFile(input, "utf8");
 const terser = await minify(source, {
   module: true,
   compress: {
@@ -40,15 +39,4 @@ const terser = await minify(source, {
 await writeFile(
   "./dist/chess.terser.min.js",
   terser.code
-);
-
-const bundle = await rollup({
-  input
-});
-await bundle.write({
-  file: "./dist/chess.rollup.min.js",
-  format: "esm",
-  compact: true,
-  sourcemap: false,
-  plugins: []
-});
+);*/
