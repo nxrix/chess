@@ -1,5 +1,5 @@
 import { minify } from "terser";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 const input = await readFile("./src/chess.js", "utf8");
 const result = await minify(input, {
   compress: {
