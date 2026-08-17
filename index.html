@@ -1,1 +1,254 @@
+---
+layout: default
+---
 
+<style>
+#board {
+  display: grid;
+  grid-template: repeat(8,60px)/repeat(8,60px)
+}
+.sq {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  cursor: pointer;
+  user-select: none;
+  position: relative
+}
+.light {
+  background: #f0d9b5
+}
+.dark {
+  background: #b58863
+}
+.wp {
+  color: #eee;
+  text-shadow: 0 0 3px #000
+}
+.bp {
+  color: #111;
+  text-shadow: 0 0 3px #fff
+}
+.sq.sel {
+  box-shadow: inset 0 0 0 4px #0005
+}
+.sq.last {
+  box-shadow: inset 0 0 0 3px #FFD200B3
+}
+.sq.move::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: #0008;
+  border-radius: 50%
+}
+.sq.capture::after {
+  content:"";
+  position: absolute;
+  inset: 4px;
+  border: 4px solid #FF3C3CCC;
+  border-radius: 50%
+}
+</style>
+
+<div>
+  <button onclick="start(0)">Play as White</button>
+  <button onclick="start(8)">Play as Black</button>
+  <button onclick="undo()">Undo</button>
+</div>
+<div id="board"></div>
+<div id="state"></div>
+<div id="promo"></div>
+
+<script type="module">
+
+import { Chess } from "https://cdn.jsdelivr.net/gh/nxrix/chess/dist/chess.min.js";
+
+const GLYPH = { 1: "♟", 2: "♞", 3: "♝", 4: "♜", 5: "♛", 6: "♚" };
+const VAL   = [0, 100, 320, 330, 500, 900, 20000];
+const AI_DEPTH = 3;
+
+let game = new Chess();
+let playerColor = 0, aiColor = 8;
+let selected = null, legal = [], pendingPromo = null;
+let aiThinking = false, gameOver = false;
+let lastMove = null, order = [];
+
+board.addEventListener("click", e => {
+  const sq = e.target.closest(".sq");
+  if (sq) click(+sq.dataset.i);
+});
+
+function render() {
+  let html = "";
+  for (const i of order) {
+    const p = game.b[i];
+    let cls = "sq " + ((((i >> 4) + (i & 7)) & 1) ? "dark" : "light");
+    if (p) cls += " " + (p & 8 ? "bp" : "wp");
+    if (selected === i) cls += " sel";
+    if (lastMove && (lastMove[0] === i || lastMove[1] === i)) cls += " last";
+    if (legal.some(m => m[1] === i)) cls += " " + (p ? "capture" : "move");
+    html += `<div class="${cls}" data-i="${i}">${p ? GLYPH[p & 7] : ""}</div>`;
+  }
+  board.innerHTML = html;
+
+  const s = game.status();
+  let txt = "";
+  if (s === "checkmate")         txt = `Checkmate - ${game.t ? "White" : "Black"} wins!`;
+  else if (s === "stalemate")    txt = "Stalemate - draw";
+  else if (s === "draw50")       txt = "Draw - 50-move rule";
+  else if (s === "draw3fold")    txt = "Draw - threefold repetition";
+  else if (s === "drawMaterial") txt = "Draw - insufficient material";
+  else {
+    txt = `${game.t ? "Black" : "White"} to move`;
+    if (s === "check") txt += " - CHECK!";
+    if (aiThinking) txt += " (thinking...)";
+    else if (game.t === playerColor) txt += " - your move";
+  }
+  gameOver ||= s === "checkmate" || s === "stalemate" || s.startsWith("draw");
+  state.innerText = txt;
+}
+
+function makeMove(m) {
+  game.apply(m);
+  lastMove = [m[0], m[1]];
+  selected = null; legal = [];
+  afterMove();
+}
+
+function click(i) {
+  if (aiThinking || gameOver || game.t !== playerColor || pendingPromo) return;
+  if (selected === i) { selected = null; legal = []; render(); return; }
+  if (selected !== null) {
+    const matches = legal.filter(m => m[1] === i);
+    if (matches.length) {
+      if (matches.length > 1) { showPromo(matches); return; }
+      makeMove(matches[0]); return;
+    }
+    selected = null; legal = [];
+  }
+  if (game.b[i] && (game.b[i] & 8) === game.t) { selected = i; legal = game.moves(i); }
+  render();
+}
+
+function showPromo(opts) {
+  pendingPromo = opts;
+  promo.innerHTML = `<div style="width:100%;text-align:center;margin-bottom:8px">Promote to:</div>`;
+  for (const m of opts) {
+    const btn = document.createElement("button");
+    btn.textContent = GLYPH[m[2]];
+    btn.className = game.t ? "bp" : "wp";
+    btn.onclick = () => { promo.style.display = "none"; pendingPromo = null; makeMove(m); };
+    promo.appendChild(btn);
+  }
+  promo.style.display = "flex";
+}
+
+function afterMove() {
+  const s = game.status();
+  if (s === "checkmate" || s === "stalemate" || s.startsWith("draw")) { gameOver = true; render(); return; }
+  if (game.t === aiColor) {
+    aiThinking = true;
+    render();
+    requestAnimationFrame(() => requestAnimationFrame(aiTurn));
+  } else {
+    render();
+  }
+}
+
+function aiTurn() {
+  const m = aiMove(AI_DEPTH);
+  aiThinking = false;
+  if (m) makeMove(m); else { gameOver = true; render(); }
+}
+
+function undo() {
+  if (aiThinking) return;
+  let n = 0;
+  while (game.hist.length && n < 3) {
+    game.undo();
+    n++;
+    if (game.t === playerColor) break;
+  }
+  lastMove = game.hist.length
+    ? [game.hist[game.hist.length - 1].from, game.hist[game.hist.length - 1].to]
+    : null;
+  gameOver = false;
+  selected = null; legal = [];
+  render();
+}
+
+function start(color) {
+  playerColor = color;
+  aiColor = color ^ 8;
+  game = new Chess();
+  order = [];
+  if (color === 0) for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) order.push(r * 16 + f);
+  else             for (let r = 7; r >= 0; r--) for (let f = 7; f >= 0; f--) order.push(r * 16 + f);
+  selected = null; legal = []; pendingPromo = null;
+  gameOver = false; aiThinking = false; lastMove = null;
+  promo.style.display = "none";
+  render();
+  if (game.t === aiColor) {
+    aiThinking = true;
+    render();
+    requestAnimationFrame(() => requestAnimationFrame(aiTurn));
+  }
+}
+
+function evaluate() {
+  let s = 0;
+  for (let r = 0; r < 8; r++)
+    for (let f = 0; f < 8; f++) {
+      const p = game.b[r * 16 + f];
+      if (p) s += (p & 8) ? -VAL[p & 7] : VAL[p & 7];
+    }
+  return s;
+}
+
+function negamax(depth, alpha, beta) {
+  if (depth === 0) return game.t === 0 ? evaluate() : -evaluate();
+  if (game.h >= 100) return 0;
+  const me = game.t, opp = me ^ 8;
+  const ms = game.all(false);
+  ms.sort((a, b) =>
+    (game.b[b[1]] ? VAL[game.b[b[1]] & 7] : 0) - (game.b[a[1]] ? VAL[game.b[a[1]] & 7] : 0));
+  let best = -Infinity, hasLegal = false;
+  for (const m of ms) {
+    const u = game.apply(m, true);
+    if (game.atk(game.king(me), opp)) { game.unapply(u, true); continue; }
+    hasLegal = true;
+    const score = -negamax(depth - 1, -beta, -alpha);
+    game.unapply(u, true);
+    if (score > best) best = score;
+    if (best > alpha) alpha = best;
+    if (alpha >= beta) break;
+  }
+  if (!hasLegal) return game.atk(game.king(me), opp) ? -100000 + (10 - depth) : 0;
+  return best;
+}
+
+function aiMove(depth) {
+  const me = game.t, opp = me ^ 8;
+  const ms = game.all(false);
+  const scored = [];
+  for (const m of ms) {
+    const u = game.apply(m, true);
+    if (game.atk(game.king(me), opp)) { game.unapply(u, true); continue; }
+    const score = -negamax(depth - 1, -Infinity, Infinity);
+    game.unapply(u, true);
+    scored.push({ m, score });
+  }
+  if (!scored.length) return null;
+  scored.sort((a, b) => b.score - a.score);
+  const best = scored[0].score;
+  const candidates = scored.filter(s => s.score >= best - 15);
+  return candidates[Math.floor(Math.random() * candidates.length)].m;
+}
+start(0);
+window.undo = undo;
+window.start = start;
+
+</script>
